@@ -90,3 +90,4 @@ h2 { margin: 26px 0 8px; font-size: clamp(39px, 5vw, 60px); line-height: .95; le
 .page-footer { display: flex; justify-content: space-between; padding: 18px 2px 0; color: #6f687d; font-size: 9px; }
 @media (max-width: 780px) { .page-shell { width: min(600px, calc(100% - 24px)); padding-top: 30px; }.project-card { grid-template-columns: 1fr; }.visual-column { border-right: 0; border-bottom: 1px solid var(--line); padding: 13px; }.video-art { min-height: 240px; }.details-column { padding: 25px 20px; }.teto-stage { height: min(78vw, 360px); }h2 { margin-top: 20px; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }
+
