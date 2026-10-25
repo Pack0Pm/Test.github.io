@@ -9,7 +9,7 @@
   const MV_URL = ''; // Example: 'https://www.youtube.com/watch?v=YOUR_VIDEO_ID'
   const ASSET_BASE = './assets/teto/';
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const sleep = (ms) => new Promise(resolve => window.setTimeout(resolve, reducedMotion ? Math.min(ms, 35) : ms));
+  const sleep = (ms) => new Promise(resolve => window.setTimeout(resolve, ms));
   const randomInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 
   const IMAGES = {
@@ -31,8 +31,8 @@
     preload.src = new URL(`${ASSET_BASE}${filename}`, document.baseURI).href;
   });
 
-  // 75 unique lines. An expression key means that portrait stays completely still
-  // for the whole line; no mouth animation runs until the face crossfades to neutral.
+  // 76 unique lines. Special expressions stay completely still through the line
+  // and remain frozen until the dialogue has faded away.
   const DIALOGUES = [
     { text: "I'm a chimera, not a baguette. Please update your Teto facts accordingly.", expression: 'smug', category: 'teto' },
     { text: "My voice has multiple versions, including UTAU and Synthesizer V. I'm versatile like that.", expression: null, category: 'teto' },
@@ -85,7 +85,7 @@
     { text: "I asked for a dressing room. He gave me a div and a click listener.", expression: 'confused', category: 'packpm' },
     { text: "Packpm said 'it'll be a tiny easter egg.' Then he wrote a whole dialogue system.", expression: 'shocked', category: 'packpm' },
     { text: "I can see the code, Packpm. Naming a variable 'tetoThingy' would be a cry for help.", expression: 'annoyed', category: 'packpm' },
-    { text: "He gave me ten expressions but not a chair. I'm literally standing here all day.", expression: 'angry', category: 'packpm' },
+    { text: "He gave me ten expressions, and I'm still not getting paid for any of them.", expression: 'angry', category: 'packpm' },
     { text: "Packpm is probably watching this interaction test and grinning at the screen. Get a hobby.", expression: 'smug', category: 'packpm' },
     { text: "I'm not saying Packpm overthinks things. I'm saying this speech bubble has a project plan.", expression: 'confused', category: 'packpm' },
     { text: "He wanted 70 lines because he wants people to see the effort. Fine. I'm making every line count.", expression: 'smug', category: 'packpm' },
@@ -142,6 +142,7 @@
   let firstClickTimer = null;
   let tapCount = 0;
   let bubbleTimer = null;
+  let frozenExpression = false;
   let lineBag = [];
   let lastCategory = '';
   const warningThreshold = randomInt(20, 40);
@@ -156,7 +157,7 @@
     return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
   }
 
-  function setFace(name, duration = 170) {
+  function setFace(name, duration = 0) {
     const filename = IMAGES[name] || IMAGES.neutral;
     currentFace = name;
     const next = activeLayer === 0 ? 1 : 0;
@@ -172,7 +173,8 @@
     };
     // document.baseURI makes this work on a GitHub Pages project subpath as well.
     img.src = new URL(`${ASSET_BASE}${filename}`, document.baseURI).href;
-    el.layerWrappers[next].style.transitionDuration = `${reducedMotion ? 1 : duration}ms`;
+    el.layerWrappers[next].style.transitionDuration = `${duration === 0 ? 0 : (reducedMotion ? 1 : duration)}ms`;
+    el.layerWrappers[activeLayer].style.transitionDuration = `${duration === 0 ? 0 : (reducedMotion ? 1 : duration)}ms`;
     el.layerWrappers[activeLayer].classList.remove('active');
     el.layerWrappers[next].classList.add('active');
     activeLayer = next;
@@ -188,121 +190,152 @@
     el.hint.setAttribute('aria-hidden', String(!show));
   }
 
+  const BUBBLE_FADE_MS = 450;
+  const FACE_RETURN_MS = 420;
+  let bubbleFading = false;
+
   function hideBubbleNow() {
     if (bubbleTimer) window.clearTimeout(bubbleTimer);
     bubbleTimer = null;
+    bubbleFading = false;
     el.dialogue.hidden = true;
     el.dialogue.classList.remove('is-fading');
     el.dialogueText.textContent = '';
   }
 
-  // Keep dialogue visible after speech. A click dismisses it; otherwise it fades
-  // after 30 seconds. The portrait settles to neutral without fading the text.
+  // A line stays readable for 30 seconds after speech. When dismissed or timed
+  // out, fade the bubble first; only then ease a frozen expression back to neutral.
+  async function fadeBubble({ restoreFrozenExpression = true } = {}) {
+    if (bubbleFading || el.dialogue.hidden) return;
+    if (bubbleTimer) window.clearTimeout(bubbleTimer);
+    bubbleTimer = null;
+    bubbleFading = true;
+    el.dialogue.classList.add('is-fading');
+
+    await sleep(BUBBLE_FADE_MS + 25);
+    if (restoreFrozenExpression && frozenExpression) {
+      frozenExpression = false;
+      setFace('neutral', FACE_RETURN_MS);
+      await sleep(FACE_RETURN_MS + 25);
+    } else {
+      frozenExpression = false;
+    }
+
+    el.dialogue.hidden = true;
+    el.dialogue.classList.remove('is-fading');
+    el.dialogueText.textContent = '';
+    bubbleFading = false;
+  }
+
   function armBubbleTimeout() {
     if (bubbleTimer) window.clearTimeout(bubbleTimer);
     bubbleTimer = window.setTimeout(() => {
-      el.dialogue.classList.add('is-fading');
-      window.setTimeout(() => {
-        el.dialogue.hidden = true;
-        el.dialogue.classList.remove('is-fading');
-        el.dialogueText.textContent = '';
-        bubbleTimer = null;
-      }, 300);
+      void fadeBubble({ restoreFrozenExpression: true });
     }, 30000);
   }
 
   function dismissBubble() {
     if (bubbleTimer) window.clearTimeout(bubbleTimer);
     bubbleTimer = null;
-    el.dialogue.classList.add('is-fading');
-    window.setTimeout(() => {
-      el.dialogue.hidden = true;
-      el.dialogue.classList.remove('is-fading');
-      el.dialogueText.textContent = '';
-    }, 220);
+    void fadeBubble({ restoreFrozenExpression: true });
+  }
+
+  async function fadeOpeningBubble() {
+    // The intro lines are one-shot: the character finishes her frame sequence
+    // first, then the text fades away instead of lingering for the 30s dialogue timer.
+    await fadeBubble({ restoreFrozenExpression: false });
   }
 
   async function showFixedBubble(text, milliseconds) {
+    frozenExpression = false;
+    bubbleFading = false;
     el.dialogue.hidden = false;
     el.dialogue.classList.remove('is-fading');
     el.dialogueText.textContent = text;
     await sleep(milliseconds);
-    // Keep the text visible; only the portrait returns to its resting pose.
-    setFace('neutral', 300);
-    armBubbleTimeout();
   }
 
-  // Type dialogue with natural pauses. Text stays visible after speech; there is
-  // no bubble fade during speech or when the portrait settles.
+  // Ordinary lines swap directly between the waking and talking PNGs. These
+  // frame changes have zero transition time: no crossfade while the mouth moves.
   async function typeDialogue(text) {
+    bubbleFading = false;
     el.dialogue.hidden = false;
     el.dialogue.classList.remove('is-fading');
     el.dialogueText.textContent = '';
+    frozenExpression = false;
     let face = 'waking';
-    setFace(face, 130);
+    setFace(face, 0);
     for (let i = 0; i < text.length; i++) {
       el.dialogueText.textContent += text[i];
       const character = text[i];
       if (character === ',' || character === ';' || character === ':') {
-        setFace('talking', 120);
+        setFace('talking', 0);
         await sleep(randomInt(235, 305));
       } else if (character === '.' || character === '!' || character === '?' || character === '…') {
-        setFace('talking', 120);
+        setFace('talking', 0);
         await sleep(randomInt(280, 370));
       } else {
         face = face === 'waking' ? 'talking' : 'waking';
-        setFace(face, randomInt(115, 205));
-        await sleep(randomInt(18, 30));
+        setFace(face, 0);
+        await sleep(randomInt(38, 58));
       }
     }
-    setFace('neutral', 300);
+    setFace('neutral', 0);
     armBubbleTimeout();
   }
 
   async function showSpecialDialogue(entry) {
-    // Special expression stays frozen for the entire line.
-    setFace(entry.expression, 180);
+    // Keep the expression completely still during speech and after it finishes.
+    frozenExpression = true;
+    bubbleFading = false;
+    setFace(entry.expression, 0);
     el.dialogue.hidden = false;
     el.dialogue.classList.remove('is-fading');
     el.dialogueText.textContent = '';
     for (let i = 0; i < entry.text.length; i++) {
       el.dialogueText.textContent += entry.text[i];
       const ch = entry.text[i];
-      await sleep(ch === ',' || ch === ';' || ch === ':' ? 28 : (ch === '.' || ch === '!' || ch === '?' ? 42 : 13));
+      await sleep(ch === ',' || ch === ';' || ch === ':' ? 220 : (ch === '.' || ch === '!' || ch === '?' ? 320 : 38));
     }
-    // Only the portrait transitions back; the dialogue remains visible.
-    setFace('neutral', 300);
+    // Expression remains frozen until the bubble fades after click/30-second timeout.
     armBubbleTimeout();
   }
 
-    async function playWakeSequence(isSecondEncounter) {
+  async function playWakeSequence(isSecondEncounter) {
     busy = true;
+    bubbleFading = false;
     if (isSecondEncounter) {
-      setFace('annoyed', 50);
+      setFace('annoyed', 0);
       await sleep(60);
-      setFace('waking', 75);
+      setFace('waking', 0);
       await sleep(95);
-      setFace('talking', 95);
+      setFace('talking', 0);
       await sleep(120);
       await showFixedBubble('Bro.', 4500);
+      // Finish the character transition before the one-shot intro bubble fades.
       setFace('neutral', 300);
+      await sleep(325);
+      await fadeOpeningBubble();
     } else {
-      setFace('waking', 120);
+      setFace('waking', 0);
       await sleep(145);
-      setFace('talking', 150);
+      setFace('talking', 0);
       await sleep(180);
       await showFixedBubble('Whatcha want?', 7000);
-      setFace('waking', 120);
+      // Reverse the wake frames with hard swaps, then fade the intro text away.
+      setFace('waking', 0);
       await sleep(120);
-      setFace('annoyed', 95);
+      setFace('annoyed', 0);
       await sleep(95);
-      setFace('sleep', 180);
+      setFace('sleep', 0);
+      await sleep(180);
       firstEncounterComplete = true;
+      await fadeOpeningBubble();
     }
     busy = false;
   }
 
-  function shuffle(array) {
+    function shuffle(array) {
     for (let i = array.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [array[i], array[j]] = [array[j], array[i]];
@@ -336,7 +369,7 @@
   }
 
   async function handleTap() {
-    if (busy) return; // Ignore clicks while Teto is speaking or animating.
+    if (busy || bubbleFading) return; // Ignore clicks during speech, animation, or fade-out.
     // First click after a finished line dismisses the bubble only. A later click
     // starts the next interaction, so visitors can actually read the dialogue.
     if (!el.dialogue.hidden) {
