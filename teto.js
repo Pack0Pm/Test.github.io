@@ -143,6 +143,8 @@
   let tapCount = 0;
   let bubbleTimer = null;
   let frozenExpression = false;
+  let isDialogueTyping = false;
+  let skipCurrentDialogue = false;
   let lineBag = [];
   let lastCategory = '';
   const warningThreshold = randomInt(20, 40);
@@ -204,7 +206,7 @@
   }
 
   // A line stays readable for 30 seconds after speech. When dismissed or timed
-  // out, fade the bubble first; only then ease a frozen expression back to neutral.
+  // out, fade the bubble first; only then ease the face back to frame 05 (neutral).
   async function fadeBubble({ restoreFrozenExpression = true } = {}) {
     if (bubbleFading || el.dialogue.hidden) return;
     if (bubbleTimer) window.clearTimeout(bubbleTimer);
@@ -213,12 +215,13 @@
     el.dialogue.classList.add('is-fading');
 
     await sleep(BUBBLE_FADE_MS + 25);
-    if (restoreFrozenExpression && frozenExpression) {
-      frozenExpression = false;
+    const shouldReturnToNeutral = restoreFrozenExpression && (frozenExpression || currentFace !== 'neutral');
+    frozenExpression = false;
+    if (shouldReturnToNeutral) {
+      // Only this return-to-idle transition crossfades. Talking frames themselves
+      // are direct PNG swaps so the mouth never ghosts/doubles.
       setFace('neutral', FACE_RETURN_MS);
       await sleep(FACE_RETURN_MS + 25);
-    } else {
-      frozenExpression = false;
     }
 
     el.dialogue.hidden = true;
@@ -255,49 +258,67 @@
     await sleep(milliseconds);
   }
 
-  // Ordinary lines swap directly between the waking and talking PNGs. These
-  // frame changes have zero transition time: no crossfade while the mouth moves.
+  // Ordinary speech swaps directly between frame 04 (mouth open) and frame 05
+  // (mouth closed). Randomized holds make the mouth movement feel less mechanical.
+  // Clicking while the text is typing fast-forwards the line; a later click dismisses it.
   async function typeDialogue(text) {
     bubbleFading = false;
     el.dialogue.hidden = false;
     el.dialogue.classList.remove('is-fading');
     el.dialogueText.textContent = '';
     frozenExpression = false;
-    let face = 'waking';
-    setFace(face, 0);
+    skipCurrentDialogue = false;
+    isDialogueTyping = true;
+    let face = 'neutral';
+    setFace('neutral', 0);
     for (let i = 0; i < text.length; i++) {
-      el.dialogueText.textContent += text[i];
+      if (skipCurrentDialogue) break;
       const character = text[i];
+      el.dialogueText.textContent += character;
       if (character === ',' || character === ';' || character === ':') {
-        setFace('talking', 0);
-        await sleep(randomInt(235, 305));
+        face = 'neutral';
+        setFace('neutral', 0);
+        await sleep(randomInt(190, 260));
       } else if (character === '.' || character === '!' || character === '?' || character === '…') {
-        setFace('talking', 0);
-        await sleep(randomInt(280, 370));
+        face = 'neutral';
+        setFace('neutral', 0);
+        await sleep(randomInt(260, 340));
       } else {
-        face = face === 'waking' ? 'talking' : 'waking';
+        face = face === 'talking' ? 'neutral' : 'talking';
         setFace(face, 0);
-        await sleep(randomInt(38, 58));
+        await sleep(randomInt(48, 82));
       }
     }
-    setFace('neutral', 0);
+    if (skipCurrentDialogue) el.dialogueText.textContent = text;
+    isDialogueTyping = false;
+    skipCurrentDialogue = false;
+    // Keep the completed line visibly in the talking pose. Dismissal/timeout
+    // fades the bubble, then eases to frame 05 rather than crossfading mouth frames.
+    setFace('talking', 0);
     armBubbleTimeout();
   }
 
   async function showSpecialDialogue(entry) {
-    // Keep the expression completely still during speech and after it finishes.
+    // Special-expression art is frozen through the line and remains frozen until
+    // the bubble fades. A click during typing skips the text animation only.
     frozenExpression = true;
     bubbleFading = false;
+    skipCurrentDialogue = false;
+    isDialogueTyping = true;
     setFace(entry.expression, 0);
     el.dialogue.hidden = false;
     el.dialogue.classList.remove('is-fading');
     el.dialogueText.textContent = '';
     for (let i = 0; i < entry.text.length; i++) {
+      if (skipCurrentDialogue) break;
       el.dialogueText.textContent += entry.text[i];
       const ch = entry.text[i];
       await sleep(ch === ',' || ch === ';' || ch === ':' ? 220 : (ch === '.' || ch === '!' || ch === '?' ? 320 : 38));
     }
-    // Expression remains frozen until the bubble fades after click/30-second timeout.
+    if (skipCurrentDialogue) el.dialogueText.textContent = entry.text;
+    isDialogueTyping = false;
+    skipCurrentDialogue = false;
+    // Leave the special face frozen until the user dismisses or the 30s timer fires.
     armBubbleTimeout();
   }
 
@@ -369,7 +390,13 @@
   }
 
   async function handleTap() {
-    if (busy || bubbleFading) return; // Ignore clicks during speech, animation, or fade-out.
+    if (bubbleFading) return;
+    if (busy) {
+      // One click during a dialogue fast-forwards the line; once it has finished,
+      // another click dismisses the bubble and returns Teto to frame 05.
+      if (isDialogueTyping) skipCurrentDialogue = true;
+      return;
+    }
     // First click after a finished line dismisses the bubble only. A later click
     // starts the next interaction, so visitors can actually read the dialogue.
     if (!el.dialogue.hidden) {
