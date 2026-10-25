@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#11101c">
+  <title>It's Fiction. — Teto Easter Egg Playground</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="page-shell">
+    <header class="page-heading">
+      <p class="eyebrow">FICTION SIGNAL // INTERACTIVE DEMO</p>
+      <h1>It's <span>Fiction.</span></h1>
+      <p class="page-intro">A little Teto easter egg playground. This is a test card, not a replacement for your existing portfolio.</p>
+    </header>
+
+    <article class="project-card" aria-label="It's Fiction project card with interactive Kasane Teto">
+      <section class="visual-column" aria-label="Project artwork and Teto interaction">
+        <div class="video-panel">
+          <div class="scanlines" aria-hidden="true"></div>
+          <p class="panel-tag">FIRST PROJECT 01 // NO DATA?</p>
+          <div class="video-art" aria-hidden="true">
+            <span class="art-cross cross-one">+</span>
+            <span class="art-cross cross-two">×</span>
+            <span class="art-orbit orbit-one"></span>
+            <span class="art-orbit orbit-two"></span>
+            <div class="video-copy"><span>FICTION</span><strong>SIGNAL</strong><small>REALITY NOT FOUND</small></div>
+            <div class="fake-player"><span></span></div>
+            <div class="video-corner">MV / 001</div>
+          </div>
+          <div class="video-footer"><span>FICTION_MODE.exe</span><span class="mini-status">● SIGNAL FOUND</span></div>
+          <div class="progress-track"><span></span></div>
+        </div>
+
+        <div class="teto-widget" id="tetoWidget">
+          <div class="widget-topline"><span><i class="status-dot"></i> UNAUTHORIZED GUEST</span><span id="tapCounter">TAPS: 000</span></div>
+          <div class="hint" id="hint">Ay ay, why not click on her? <span class="hint-arrow" aria-hidden="true">↘</span></div>
+          <button class="teto-stage" id="tetoButton" type="button" aria-label="Click Kasane Teto to interact" aria-describedby="tetoHelp">
+            <span class="face-layer active" id="faceLayerA"><img alt="Kasane Teto expression"></span>
+            <span class="face-layer" id="faceLayerB"><img alt="Kasane Teto expression"></span>
+            <span class="missing-label" id="missingLabel" aria-hidden="true">ADD TETO PNG FILES<br><small>See README.md</small></span>
+            <span class="tap-flash" aria-hidden="true"></span>
+          </button>
+          <p class="teto-help" id="tetoHelp">CLICK HER. SHE HAS OPINIONS.</p>
+          <div class="dialogue" id="dialogue" role="status" aria-live="polite" aria-atomic="true" hidden>
+            <span class="dialogue-caret" aria-hidden="true">▸</span><span id="dialogueText"></span><span class="dialogue-cursor" aria-hidden="true">_</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="details-column">
+        <div class="detail-kicker"><span class="tiny-square"></span> THE PROJECT FILE</div>
+        <h2>It's fiction<span class="pink-dot">.</span></h2>
+        <p class="artist-line">Chenomio <span>/ feat.</span> Kasane Teto</p>
+        <p class="project-description">A reality glitch, a song, and one extremely uninvited virtual guest. Click Teto and see how long she tolerates this website.</p>
+        <div class="metadata-grid">
+          <div><span class="meta-label">STATUS</span><strong>REALITY NOT FOUND</strong></div>
+          <div><span class="meta-label">SIGNAL</span><strong>FICTION / 001</strong></div>
+          <div><span class="meta-label">GUEST</span><strong>KASANE TETO</strong></div>
+          <div><span class="meta-label">DIALOGUE CACHE</span><strong id="lineCount">75 LINES</strong></div>
+        </div>
+        <div class="divider-glitch"><span></span><i>///</i><span></span></div>
+        <p class="system-note"><span class="system-prompt">SYSTEM NOTE:</span> Guest may comment on the MV, the creator, and the fact that she's currently trapped in a portfolio card.</p>
+        <button class="watch-button" id="watchButton" type="button"><span class="play-icon">▶</span> WATCH MV <span class="button-arrow">↗</span></button>
+        <p class="watch-note" id="watchNote">Set your actual MV link in <code>teto.js</code>.</p>
+        <div class="card-bottom"><span>PACKPM'S PORTFOLIO // PLAYGROUND</span><span>© FICTION?</span></div>
+      </section>
+    </article>
+
+    <footer class="page-footer"><span>NOT A REALITY ERROR.</span><span>PROBABLY.</span></footer>
+  </main>
+  <script src="teto.js"></script>
+</body>
+</html>
